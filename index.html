@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FreshMart — Rack Inspection</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d0f0e;
+    --surface: #161918;
+    --surface2: #1e2221;
+    --border: #2a2f2d;
+    --green: #3dffa0;
+    --green-dim: #1a5c3f;
+    --red: #ff4d6d;
+    --red-dim: #5c1a27;
+    --amber: #ffb830;
+    --text: #e8ede9;
+    --muted: #6b7570;
+    --accent: #3dffa0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 36px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: rgba(13,15,14,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-icon {
+    width:38px; height:38px;
+    background: var(--green);
+    border-radius: 8px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:18px;
+  }
+  .logo h1 { font-size:1.3rem; font-weight:800; letter-spacing:-0.02em; }
+  .logo span { font-size:0.7rem; color:var(--muted); font-weight:400; display:block; letter-spacing:0.08em; text-transform:uppercase; }
+
+  .header-actions { display:flex; gap:10px; align-items:center; }
+
+  .btn {
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-weight: 600;
+    font-size: 0.82rem;
+    letter-spacing: 0.02em;
+    transition: all 0.18s;
+  }
+  .btn-primary { background: var(--green); color: #0d0f0e; }
+  .btn-primary:hover { background: #5fffb4; transform: translateY(-1px); }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--green); color: var(--green); }
+  .btn-danger { background: transparent; color: var(--red); border: 1px solid var(--red-dim); }
+  .btn-danger:hover { background: var(--red-dim); }
+
+  /* ── PROGRESS BAR ── */
+  .summary-bar {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    padding: 16px 36px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  .stat { display:flex; flex-direction:column; gap:2px; }
+  .stat-val { font-size: 1.5rem; font-weight: 800; font-family: 'DM Mono', monospace; }
+  .stat-lbl { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+  .stat-val.green { color: var(--green); }
+  .stat-val.red { color: var(--red); }
+  .stat-val.amber { color: var(--amber); }
+  .stat-divider { width:1px; height:36px; background: var(--border); }
+  .progress-wrap { flex:1; }
+  .progress-track {
+    height: 6px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--green-dim), var(--green));
+    border-radius: 99px;
+    transition: width 0.4s ease;
+  }
+  .progress-label { font-size:0.7rem; color:var(--muted); margin-top:5px; font-family:'DM Mono',monospace; }
+
+  /* ── MAIN GRID ── */
+  main { padding: 28px 36px; display:flex; flex-direction:column; gap:28px; }
+
+  .rack-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+  .rack-card.all-done { border-color: var(--green-dim); }
+
+  .rack-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .rack-title { display:flex; align-items:center; gap:12px; }
+  .rack-badge {
+    width:36px; height:36px;
+    border-radius: 8px;
+    background: var(--border);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:1rem;
+    font-family: 'DM Mono', monospace;
+    border: 1px solid var(--border);
+  }
+  .rack-badge.done { background: var(--green-dim); color: var(--green); border-color: var(--green-dim); }
+  .rack-name { font-weight:700; font-size:1rem; }
+  .rack-code { font-size:0.72rem; color:var(--muted); font-family:'DM Mono',monospace; margin-top:2px; }
+  .rack-progress { font-size:0.78rem; color:var(--muted); font-family:'DM Mono',monospace; }
+  .rack-progress span { color: var(--text); font-weight:600; }
+
+  .sections-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 10px;
+    padding: 16px 22px;
+  }
+
+  .section-cell {
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--surface2);
+    padding: 12px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.18s;
+    position: relative;
+    overflow: hidden;
+  }
+  .section-cell:hover { border-color: var(--green); transform: translateY(-2px); box-shadow: 0 6px 20px rgba(61,255,160,0.08); }
+  .section-cell.checked {
+    background: var(--green-dim);
+    border-color: var(--green);
+  }
+  .section-cell.checked::before {
+    content:'';
+    position:absolute; inset:0;
+    background: radial-gradient(circle at 50% 0%, rgba(61,255,160,0.18), transparent 70%);
+  }
+  .sec-code {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--muted);
+  }
+  .section-cell.checked .sec-code { color: var(--green); }
+  .sec-status {
+    font-size: 1.4rem;
+    margin: 6px 0 4px;
+    line-height:1;
+  }
+  .sec-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+  }
+  .section-cell.checked .sec-label { color: var(--green); }
+  .sec-time {
+    font-size: 0.58rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    margin-top: 4px;
+    min-height:10px;
+  }
+  .section-cell.checked .sec-time { color: rgba(61,255,160,0.6); }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    display:none;
+    position:fixed; inset:0;
+    background: rgba(0,0,0,0.7);
+    z-index:200;
+    backdrop-filter:blur(4px);
+    align-items:center;
+    justify-content:center;
+  }
+  .modal-overlay.active { display:flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px;
+    width: 380px;
+    max-width: 94vw;
+    animation: modalIn 0.2s ease;
+  }
+  @keyframes modalIn { from { transform:scale(0.92); opacity:0; } to { transform:scale(1); opacity:1; } }
+  .modal h2 { font-size:1.1rem; font-weight:700; margin-bottom:6px; }
+  .modal p { font-size:0.82rem; color:var(--muted); margin-bottom:20px; }
+  .modal label { font-size:0.78rem; font-weight:600; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); display:block; margin-bottom:6px; }
+  .modal input {
+    width:100%; padding:11px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius:8px;
+    color: var(--text);
+    font-family:'Syne',sans-serif;
+    font-size:0.9rem;
+    margin-bottom:16px;
+    outline:none;
+    transition: border-color 0.18s;
+  }
+  .modal input:focus { border-color: var(--green); }
+  .modal-actions { display:flex; gap:10px; justify-content:flex-end; margin-top:4px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position:fixed; bottom:28px; right:28px;
+    background: var(--surface);
+    border: 1px solid var(--green);
+    border-radius:10px;
+    padding:12px 20px;
+    font-size:0.82rem;
+    font-weight:600;
+    color:var(--green);
+    z-index:999;
+    animation: toastIn 0.3s ease;
+    display:none;
+  }
+  @keyframes toastIn { from { transform:translateY(16px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+  @media(max-width:768px) {
+    header { padding:14px 16px; }
+    .summary-bar { padding:12px 16px; gap:14px; }
+    main { padding:16px; }
+    .sections-grid { grid-template-columns: repeat(4,1fr); gap:8px; padding:12px 14px; }
+    .rack-header { padding:12px 14px; }
+    .stat-val { font-size:1.2rem; }
+  }
+  @media(max-width:480px) {
+    .sections-grid { grid-template-columns: repeat(3,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2 id="modal-title">Mark Section</h2>
+    <p id="modal-sub">Enter your name to confirm this check.</p>
+    <label for="checker-name">Your Name</label>
+    <input type="text" id="checker-name" placeholder="e.g. Kasun Perera" autocomplete="off"/>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="confirmCheck()">Confirm Check ✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🛒</div>
+    <div>
+      <h1>FreshMart</h1>
+      <span>Rack Inspection System</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-ghost" onclick="confirmReset()">↺ Reset All</button>
+    <button class="btn btn-primary" onclick="exportPDF()">⬇ Export PDF</button>
+  </div>
+</header>
+
+<!-- SUMMARY BAR -->
+<div class="summary-bar">
+  <div class="stat">
+    <div class="stat-val green" id="stat-checked">0</div>
+    <div class="stat-lbl">Checked</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="stat-val red" id="stat-remaining">28</div>
+    <div class="stat-lbl">Remaining</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="stat">
+    <div class="stat-val amber" id="stat-racks-done">0/4</div>
+    <div class="stat-lbl">Racks Done</div>
+  </div>
+  <div class="stat-divider"></div>
+  <div class="progress-wrap">
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+    <div class="progress-label" id="progress-label">0 / 28 sections complete</div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main id="main-content"></main>
+
+<script>
+// ── DATA ──
+const RACKS = [
+  { id:'A', name:'Rack A', code:'RK-A01', color:'#3dffa0' },
+  { id:'B', name:'Rack B', code:'RK-B01', color:'#60c8ff' },
+  { id:'C', name:'Rack C', code:'RK-C01', color:'#ffb830' },
+  { id:'D', name:'Rack D', code:'RK-D01', color:'#ff6b9d' },
+];
+const SECTIONS_PER_RACK = 7;
+
+// Generate section codes: e.g. A-S01, A-S02 …
+function sectionCode(rackId, idx) {
+  return `${rackId}-S${String(idx+1).padStart(2,'0')}`;
+}
+
+// ── STATE ──
+let state = {}; // { 'A-S01': { checked:true, by:'Name', time:'10:30' }, … }
+let pendingCell = null; // { rackId, secIdx, code }
+
+function loadState() {
+  try { const s = localStorage.getItem('freshmart_rack_state'); if(s) state = JSON.parse(s); } catch(e){}
+}
+function saveState() {
+  try { localStorage.setItem('freshmart_rack_state', JSON.stringify(state)); } catch(e){}
+}
+
+loadState();
+
+// ── RENDER ──
+function renderAll() {
+  const main = document.getElementById('main-content');
+  main.innerHTML = '';
+  RACKS.forEach(rack => {
+    const card = document.createElement('div');
+    const checkedInRack = Array.from({length:SECTIONS_PER_RACK}, (_,i) => sectionCode(rack.id,i)).filter(c => state[c]?.checked).length;
+    const allDone = checkedInRack === SECTIONS_PER_RACK;
+    card.className = 'rack-card' + (allDone ? ' all-done' : '');
+    card.id = `rack-${rack.id}`;
+
+    const badge = `<div class="rack-badge${allDone?' done':''}">${rack.id}</div>`;
+    const header = `
+      <div class="rack-header">
+        <div class="rack-title">
+          ${badge}
+          <div>
+            <div class="rack-name">${rack.name}</div>
+            <div class="rack-code">${rack.code}</div>
+          </div>
+        </div>
+        <div class="rack-progress"><span>${checkedInRack}</span> / ${SECTIONS_PER_RACK} sections</div>
+      </div>`;
+
+    let grid = '<div class="sections-grid">';
+    for(let i=0;i<SECTIONS_PER_RACK;i++){
+      const code = sectionCode(rack.id,i);
+      const info = state[code];
+      const checked = info?.checked;
+      grid += `
+        <div class="section-cell${checked?' checked':''}" onclick="openModal('${rack.id}',${i},'${code}')" title="${checked ? 'Checked by '+info.by : 'Click to mark as checked'}">
+          <div class="sec-code">${code}</div>
+          <div class="sec-status">${checked ? '✅' : '🔴'}</div>
+          <div class="sec-label">${checked ? 'Done' : 'Pending'}</div>
+          <div class="sec-time">${checked ? info.time : ''}</div>
+        </div>`;
+    }
+    grid += '</div>';
+    card.innerHTML = header + grid;
+    main.appendChild(card);
+  });
+  updateSummary();
+}
+
+function updateSummary() {
+  const total = RACKS.length * SECTIONS_PER_RACK;
+  const checked = Object.values(state).filter(v=>v.checked).length;
+  const remaining = total - checked;
+  const racksDone = RACKS.filter(r =>
+    Array.from({length:SECTIONS_PER_RACK},(_,i)=>sectionCode(r.id,i)).every(c=>state[c]?.checked)
+  ).length;
+
+  document.getElementById('stat-checked').textContent = checked;
+  document.getElementById('stat-remaining').textContent = remaining;
+  document.getElementById('stat-racks-done').textContent = `${racksDone}/4`;
+  document.getElementById('progress-fill').style.width = `${(checked/total)*100}%`;
+  document.getElementById('progress-label').textContent = `${checked} / ${total} sections complete`;
+}
+
+// ── MODAL ──
+function openModal(rackId, secIdx, code) {
+  if(state[code]?.checked) {
+    // Toggle off
+    if(confirm(`Un-check section ${code}?\nWas checked by: ${state[code].by}`)) {
+      delete state[code];
+      saveState();
+      renderAll();
+      showToast(`Section ${code} unchecked`);
+    }
+    return;
+  }
+  pendingCell = { rackId, secIdx, code };
+  document.getElementById('modal-title').textContent = `Check Section ${code}`;
+  document.getElementById('modal-sub').textContent = `Rack: ${RACKS.find(r=>r.id===rackId).name} · Section ${secIdx+1} of ${SECTIONS_PER_RACK}`;
+  document.getElementById('checker-name').value = localStorage.getItem('last_checker') || '';
+  document.getElementById('modal').classList.add('active');
+  setTimeout(()=>document.getElementById('checker-name').focus(),100);
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+  pendingCell = null;
+}
+function confirmCheck() {
+  const name = document.getElementById('checker-name').value.trim();
+  if(!name){ alert('Please enter your name.'); return; }
+  const now = new Date();
+  const time = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  const date = now.toLocaleDateString('en-GB');
+  state[pendingCell.code] = { checked:true, by:name, time:`${date} ${time}` };
+  localStorage.setItem('last_checker', name);
+  saveState();
+  closeModal();
+  renderAll();
+  showToast(`✅ ${pendingCell.code} marked by ${name}`);
+}
+
+document.getElementById('checker-name').addEventListener('keydown', e => { if(e.key==='Enter') confirmCheck(); });
+document.getElementById('modal').addEventListener('click', e => { if(e.target===document.getElementById('modal')) closeModal(); });
+
+// ── RESET ──
+function confirmReset() {
+  if(confirm('Reset ALL sections to unchecked? This cannot be undone.')) {
+    state = {};
+    saveState();
+    renderAll();
+    showToast('All sections reset');
+  }
+}
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>{ t.style.display='none'; }, 2800);
+}
+
+// ── PDF EXPORT ──
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB') + ' ' + now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+  const total = RACKS.length * SECTIONS_PER_RACK;
+  const checkedCount = Object.values(state).filter(v=>v.checked).length;
+  const remaining = total - checkedCount;
+
+  // ── Page setup ──
+  const W = 210; const H = 297;
+  doc.setFillColor(13,15,14);
+  doc.rect(0,0,W,H,'F');
+
+  // Header bar
+  doc.setFillColor(22,25,24);
+  doc.rect(0,0,W,28,'F');
+  doc.setFillColor(61,255,160);
+  doc.rect(0,0,6,28,'F');
+
+  doc.setTextColor(232,237,233);
+  doc.setFontSize(16);
+  doc.setFont('helvetica','bold');
+  doc.text('FreshMart — Rack Inspection Report', 14, 12);
+  doc.setFontSize(8);
+  doc.setFont('helvetica','normal');
+  doc.setTextColor(107,117,112);
+  doc.text(`Generated: ${dateStr}`, 14, 20);
+
+  // Summary boxes
+  const boxY = 36; const boxH = 20; const boxW = 44;
+  const boxes = [
+    { label:'Total Sections', val:String(total), color:[45,85,65] },
+    { label:'Checked', val:String(checkedCount), color:[30,92,63] },
+    { label:'Remaining', val:String(remaining), color:[92,26,39] },
+    { label:'Racks Complete', val: RACKS.filter(r=>Array.from({length:SECTIONS_PER_RACK},(_,i)=>sectionCode(r.id,i)).every(c=>state[c]?.checked)).length + '/4', color:[60,50,20] },
+  ];
+  boxes.forEach((b,i) => {
+    const x = 14 + i*(boxW+4);
+    doc.setFillColor(...b.color);
+    doc.roundedRect(x, boxY, boxW, boxH, 3,3,'F');
+    doc.setTextColor(232,237,233);
+    doc.setFontSize(14);
+    doc.setFont('helvetica','bold');
+    doc.text(b.val, x+boxW/2, boxY+11, {align:'center'});
+    doc.setFontSize(7);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(180,190,185);
+    doc.text(b.label, x+boxW/2, boxY+17, {align:'center'});
+  });
+
+  let curY = 68;
+
+  RACKS.forEach(rack => {
+    if(curY > 250) { doc.addPage(); doc.setFillColor(13,15,14); doc.rect(0,0,W,H,'F'); curY = 16; }
+
+    const secs = Array.from({length:SECTIONS_PER_RACK},(_,i)=>({code:sectionCode(rack.id,i), info:state[sectionCode(rack.id,i)]}));
+    const rChecked = secs.filter(s=>s.info?.checked).length;
+    const allDone = rChecked === SECTIONS_PER_RACK;
+
+    // Rack header
+    doc.setFillColor(30,34,33);
+    doc.roundedRect(14, curY, W-28, 12, 2,2,'F');
+    if(allDone) { doc.setFillColor(61,255,160); doc.roundedRect(14,curY,4,12,1,1,'F'); }
+
+    doc.setTextColor(232,237,233);
+    doc.setFontSize(10);
+    doc.setFont('helvetica','bold');
+    doc.text(`${rack.name}  (${rack.code})`, 22, curY+8);
+    doc.setFontSize(8);
+    doc.setFont('helvetica','normal');
+    doc.setTextColor(allDone ? 61 : 255, allDone ? 255 : 100, allDone ? 160 : 109);
+    doc.text(`${rChecked}/${SECTIONS_PER_RACK} checked${allDone?' — COMPLETE':''}`, W-14, curY+8, {align:'right'});
+
+    curY += 16;
+
+    // Section rows
+    const colW = (W-28)/SECTIONS_PER_RACK;
+    secs.forEach((s,i) => {
+      const x = 14 + i*colW;
+      const checked = s.info?.checked;
+      doc.setFillColor(checked ? 26:30, checked ? 92:34, checked ? 63:33);
+      doc.roundedRect(x+1, curY, colW-2, 22, 2,2,'F');
+      if(checked) {
+        doc.setFillColor(61,255,160);
+        doc.roundedRect(x+1,curY,colW-2,3,1,1,'F');
+      }
+      doc.setTextColor(checked ? 61:160, checked ? 255:165, checked ? 160:160);
+      doc.setFontSize(7);
+      doc.setFont('helvetica','bold');
+      doc.text(s.code, x+colW/2, curY+8, {align:'center'});
+      doc.setFontSize(9);
+      doc.text(checked ? '✓' : '✗', x+colW/2, curY+15, {align:'center'});
+      if(checked && s.info.by) {
+        doc.setFontSize(5);
+        doc.setFont('helvetica','normal');
+        doc.setTextColor(100,140,120);
+        doc.text(s.info.by.substring(0,10), x+colW/2, curY+20, {align:'center'});
+      }
+    });
+    curY += 28;
+  });
+
+  // Checked details table
+  const checkedItems = [];
+  RACKS.forEach(r => {
+    for(let i=0;i<SECTIONS_PER_RACK;i++){
+      const code = sectionCode(r.id,i);
+      if(state[code]?.checked) checkedItems.push({rack:r.name, code, by:state[code].by, time:state[code].time});
+    }
+  });
+
+  if(checkedItems.length > 0) {
+    if(curY > 220) { doc.addPage(); doc.setFillColor(13,15,14); doc.rect(0,0,W,H,'F'); curY = 16; }
+    curY += 6;
+    doc.setFillColor(22,25,24);
+    doc.rect(14, curY, W-28, 8,'F');
+    doc.setTextColor(61,255,160);
+    doc.setFontSize(9);
+    doc.setFont('helvetica','bold');
+    doc.text('Checked Sections Detail', 18, curY+5.5);
+    curY += 10;
+
+    const cols = [28, 52, 70, 50]; // widths
+    const headers = ['Rack','Section','Checked By','Time'];
+    const startX = 14;
+    doc.setFillColor(30,34,33);
+    doc.rect(startX, curY, W-28, 7,'F');
+    doc.setTextColor(180,190,185); doc.setFontSize(7); doc.setFont('helvetica','bold');
+    let cx = startX+3;
+    headers.forEach((h,i)=>{ doc.text(h, cx, curY+5); cx+=cols[i]; });
+    curY += 8;
+
+    checkedItems.forEach((item,idx) => {
+      if(curY > 270) { doc.addPage(); doc.setFillColor(13,15,14); doc.rect(0,0,W,H,'F'); curY = 16; }
+      if(idx%2===0){ doc.setFillColor(20,23,22); doc.rect(startX,curY,W-28,6,'F'); }
+      doc.setTextColor(232,237,233); doc.setFontSize(7); doc.setFont('helvetica','normal');
+      let dx = startX+3;
+      [item.rack, item.code, item.by, item.time].forEach((v,i)=>{ doc.text(String(v||'').substring(0,22), dx, curY+4.5); dx+=cols[i]; });
+      curY += 7;
+    });
+  }
+
+  // Footer
+  doc.setFillColor(22,25,24);
+  doc.rect(0, H-14, W, 14, 'F');
+  doc.setTextColor(107,117,112);
+  doc.setFontSize(7);
+  doc.text('FreshMart Rack Inspection System', 14, H-5);
+  doc.text(`${checkedCount}/${total} sections complete`, W-14, H-5, {align:'right'});
+
+  doc.save(`FreshMart_Inspection_${now.toLocaleDateString('en-GB').replace(/\//g,'-')}.pdf`);
+  showToast('PDF exported successfully!');
+}
+
+// ── INIT ──
+renderAll();
+</script>
+</body>
+</html>
